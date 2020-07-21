@@ -43,7 +43,7 @@ async def get_imports(year_ref: int, reg_unit: Optional[List[int]] = Query(None)
         query = """
           SELECT DISTINCT import_id, import_ano, import_mes, import_kg_liquido, import_valor_fob, 
           municipios_cod_geo, municipios_nome_cap, municipios_sigla_uf, 
-          paises_cod, paises_nome as pais_destino, 
+          paises_cod, paises_nome as pais_origem, 
           sh_cod_sh4, sh_nome_sh4
           FROM imports
           LEFT JOIN municipios 
@@ -197,6 +197,40 @@ async def get_exports(year_ref: int, reg_unit: Optional[List[int]] = Query(None)
           GROUP BY sh_cod_sh4, sh_nome_sh4, municipios_sigla_uf
           ORDER BY sh_cod_sh4
           """.format(where_year_ref, where_reg_unit)
+    elif mode == "4":
+        query = """
+            SELECT DISTINCT export_ano, SUM(export_kg_liquido) as total_export_kg_liquido, SUM(export_valor_fob) as total_export_valor_fob, 
+            municipios_cod_geo, municipios_nome_cap, municipios_sigla_uf, 
+            paises_cod, paises_nome as pais_origem, 
+            sh_cod_sh4, sh_nome_sh4
+            FROM exports
+            LEFT JOIN municipios 
+            ON municipios.municipios_cod_geo = exports.fk_municipio
+            LEFT JOIN paises
+            ON paises.paises_cod = exports.fk_pais
+            LEFT JOIN sistema_harmonizado 
+            ON sistema_harmonizado.sh_cod_sh4 = exports.fk_sh4 
+            {} {}
+            GROUP BY municipios_cod_geo, sh_cod_sh4, sh_nome_sh4, municipios_nome_cap, municipios_sigla_uf, paises_cod, pais_origem
+            ORDER BY municipios_cod_geo;
+        """.format(where_year_ref, where_reg_unit)
+    elif mode == "5":
+        query = """
+            SELECT DISTINCT export_ano, SUM(export_kg_liquido) as total_export_kg_liquido, SUM(export_valor_fob) as total_export_valor_fob, 
+            municipios_sigla_uf, 
+            paises_cod, paises_nome as pais_destino, 
+            sh_cod_sh4, sh_nome_sh4
+            FROM exports
+            LEFT JOIN municipios 
+            ON municipios.municipios_cod_geo = exports.fk_municipio
+            LEFT JOIN paises
+            ON paises.paises_cod = exports.fk_pais
+            LEFT JOIN sistema_harmonizado 
+            ON sistema_harmonizado.sh_cod_sh4 = exports.fk_sh4 
+            {} {}
+            GROUP BY sh_cod_sh4, sh_nome_sh4, municipios_sigla_uf, paises_cod, pais_origem
+            ORDER BY sh_cod_sh4
+            """.format(where_year_ref, where_reg_unit)
     else:
         return {"error": "Modo de agregação {} não encontrado" .format(mode)}
 
@@ -225,7 +259,7 @@ async def fetch_sh():
 async def fetch_regional_unit():
     db.query(
         """
-      SELECT municipios_cod_geo, municipios_nome_cap, municipios_sigla_uf FROM municipios
+      SELECT municipios_cod_geo, municipios_nome_cap, municipios_sigla_uf FROM municipios ORDER BY municipios_sigla_uf
     """
     )
 
